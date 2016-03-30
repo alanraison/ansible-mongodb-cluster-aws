@@ -1,3 +1,23 @@
+variable "web_servers" {
+  default = 3
+}
+
+variable "web_server_regions" {
+  default = [
+    "eu-west-1a",
+    "eu-west-1b",
+    "eu-west-1c"
+  ]
+}
+
+variable "web_server_subnets" {
+  default = [
+    "${aws_subnet.svc_vpc_public_subnet_a.id}",
+    "${aws_subnet.svc_vpc_public_subnet_b.id}",
+    "${aws_subnet.svc_vpc_public_subnet_c.id}"
+  ]
+}
+
 provider "aws" {
     region = "eu-west-1"
 }
@@ -162,41 +182,16 @@ resource "aws_instance" "ansible_controller" {
     user_data = "${file("setup_ansible_controller.sh")}"
 }
 
-resource "aws_instance" "web1" {
+resource "aws_instance" "web" {
+    count = "${var.web_servers}"
     ami = "ami-e1398992"
-    availability_zone = "eu-west-1a"
+    availability_zone = "${element(web_server_regions,count.index % 3)}"
     instance_type = "t2.micro"
     key_name = "svc_ssh_key"
-    subnet_id = "${aws_subnet.svc_vpc_public_subnet_a.id}"
+    subnet_id = "${element(web_server_subnets,count.index % 3)}"
     vpc_security_group_ids = [ "${aws_security_group.svc_incoming_web.id}" ]
     tags {
-      Name = "web1"
-    }
-    user_data = "${file("run_app.sh")}"
-}
-
-resource "aws_instance" "web2" {
-    ami = "ami-e1398992"
-    availability_zone = "eu-west-1b"
-    instance_type = "t2.micro"
-    key_name = "svc_ssh_key"
-    subnet_id = "${aws_subnet.svc_vpc_public_subnet_b.id}"
-    vpc_security_group_ids = [ "${aws_security_group.svc_incoming_web.id}" ]
-    tags {
-      Name = "web2"
-    }
-    user_data = "${file("run_app.sh")}"
-}
-
-resource "aws_instance" "web3" {
-    ami = "ami-e1398992"
-    availability_zone = "eu-west-1c"
-    instance_type = "t2.micro"
-    key_name = "svc_ssh_key"
-    subnet_id = "${aws_subnet.svc_vpc_public_subnet_c.id}"
-    vpc_security_group_ids = [ "${aws_security_group.svc_incoming_web.id}" ]
-    tags {
-      Name = "web3"
+      Name = "web${count.index}"
     }
     user_data = "${file("run_app.sh")}"
 }
